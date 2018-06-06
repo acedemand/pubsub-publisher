@@ -1,19 +1,21 @@
+import random
+import time
+
 from flask import Flask, request, jsonify, abort
-from google.cloud import pubsub_v1
+from google.cloud import pubsub
 
 app = Flask(__name__)
 
 project_name = 'noble-freehold-195108'
-topic_name = 'topic1'
-subscription_name = 'sub1'
+topic_names = ['topic1', 'topic2', 'topic3']
 
-batch_settings = pubsub_v1.types.BatchSettings(
-    max_bytes=1024,  # One kilobyte
-    max_latency=1,  # One second
+batch_settings = pubsub.types.BatchSettings(
+    max_messages=1000,
+    # max_bytes=1024,
+    max_latency=0.1,
 )
 
-publisher = pubsub_v1.PublisherClient(batch_settings)
-topic_path = publisher.topic_path(project_name, topic_name)
+publisher = pubsub.PublisherClient(batch_settings)
 
 
 @app.route('/pubsub/topic1', methods=['POST'])
@@ -21,8 +23,13 @@ def pushtotopic():
     if not request.json or not 'data' in request.json:
         abort(400)
 
-    data = request.data.encode('utf-8')
-    publisher.publish(topic_path, data, origin='python-sample', username='gcp')
+    t = time.time()
+    data = '{}, date: {}'.format(request.data.encode('utf-8'), t)
+
+    topic_name = topic_names[random.randint(0, 10000) % len(topic_names)]
+    print topic_name
+    topic_path = publisher.topic_path(project_name, topic_name)
+    publisher.publish(topic_path, data, origin='{}'.format(topic_name), time='{}'.format(t))
 
     return jsonify({'result': 'OK'}), 200
 
